@@ -33,11 +33,34 @@ class IrrigationViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Clase etiquetada del modelo
+    private val _classLabel = MutableStateFlow("")
+    val classLabel: StateFlow<String> = _classLabel
+
+    // Confianza de la predicción
+    private val _confidence = MutableStateFlow(0)
+    val confidence: StateFlow<Int> = _confidence
+
+    // Estado de la planta
+    private val _plantStatus = MutableStateFlow("")
+    val plantStatus: StateFlow<String> = _plantStatus
+
     init {
         loadSampleData()
     }
 
-    // Cargar datos de ejemplo
+    /**
+     * Establecer resultado de detección del modelo ML
+     */
+    fun setDetectionResult(label: String, confidence: Int, status: String) {
+        _classLabel.value = label
+        _confidence.value = confidence
+        _plantStatus.value = status
+    }
+
+    /**
+     * Cargar datos de ejemplo
+     */
     private fun loadSampleData() {
         viewModelScope.launch {
             try {
@@ -71,7 +94,9 @@ class IrrigationViewModel : ViewModel() {
         }
     }
 
-    // Realizar detección de planta
+    /**
+     * Realizar detección de planta (simulada)
+     */
     fun detectPlant() {
         viewModelScope.launch {
             try {
@@ -95,12 +120,16 @@ class IrrigationViewModel : ViewModel() {
         }
     }
 
-    // Limpiar error
+    /**
+     * Limpiar mensaje de error
+     */
     fun clearError() {
         _errorMessage.value = null
     }
 
-    // Resetear detección
+    /**
+     * Resetear resultado de detección
+     */
     fun resetDetection() {
         _detectionResult.value = null
     }

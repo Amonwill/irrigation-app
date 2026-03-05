@@ -1,0 +1,3 @@
+saludable
+requiere_agua
+enferma
