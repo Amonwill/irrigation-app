@@ -26,7 +26,7 @@ fun IrrigationAppBar(
                 fontWeight = FontWeight.Bold
             )
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color(Constants.PURPLE_LIGHT)
         ),
         navigationIcon = {
