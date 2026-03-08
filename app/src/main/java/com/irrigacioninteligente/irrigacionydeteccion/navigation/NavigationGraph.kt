@@ -55,15 +55,8 @@ fun IrrigationNavGraph(navController: NavHostController) {
         }
 
         composable(IrrigationScreen.CameraCapture.route) {
-            CameraCaptureScreen(
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onDetectionComplete = { label, confidence, status ->
-                    viewModel.setDetectionResult(label, confidence, status)
-                    navController.navigate(IrrigationScreen.DetectionResult.route)
-                }
-            )
+            // ✅ ACTUALIZADO: Solo requiere navController
+            CameraCaptureScreen(navController = navController)
         }
 
         composable(IrrigationScreen.DetectionResult.route) {

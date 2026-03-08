@@ -1,6 +1,7 @@
 package com.irrigacioninteligente.irrigacionydeteccion.utils
 
 import android.content.Context
+import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -11,93 +12,119 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.Executor
 
 class CameraManager(private val context: Context) {
-
     private var imageCapture: ImageCapture? = null
     private var cameraProvider: ProcessCameraProvider? = null
+    private val cameraExecutor: Executor = ContextCompat.getMainExecutor(context)
 
     fun startCamera(
         previewView: PreviewView,
         lifecycleOwner: LifecycleOwner,
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
+        onError: (String) -> Unit
     ) {
+        Log.d("CameraManager", "🔄 Iniciando cámara...")
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
-        cameraProviderFuture.addListener({
-            try {
-                cameraProvider = cameraProviderFuture.get()
+        cameraProviderFuture.addListener(
+            {
+                try {
+                    // Obtener el provider
+                    cameraProvider = cameraProviderFuture.get()
+                    Log.d("CameraManager", "✅ CameraProvider obtenido")
 
-                // Preview
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
+                    // Crear Preview
+                    val preview = Preview.Builder().build()
+
+                    // IMPORTANTE: Esperar a que PreviewView esté listo
+                    previewView.previewStreamState.observe(lifecycleOwner) { state ->
+                        Log.d("CameraManager", "Preview state: $state")
+                    }
+
+                    preview.setSurfaceProvider(previewView.surfaceProvider)
+                    Log.d("CameraManager", "✅ SurfaceProvider asignado")
+
+                    // Crear ImageCapture
+                    imageCapture = ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                        .setTargetRotation(previewView.display.rotation)
+                        .build()
+
+                    // Selector de cámara trasera
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                    // Unbind all antes de bind
+                    cameraProvider?.unbindAll()
+                    Log.d("CameraManager", "✅ Cámaras desvinculadas")
+
+                    // Bind
+                    cameraProvider?.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageCapture!!
+                    )
+
+                    Log.d("CameraManager", "✅ Cámara iniciada exitosamente")
+
+                } catch (e: Exception) {
+                    Log.e("CameraManager", "❌ Error: ${e.message}", e)
+                    onError("Error al iniciar cámara: ${e.message}")
                 }
-
-                // ImageCapture
-                imageCapture = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                    .build()
-
-                // Selector de cámara frontal
-                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-                // Unbind previous bindings
-                cameraProvider?.unbindAll()
-
-                // Bind
-                cameraProvider?.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview,
-                    imageCapture
-                )
-
-                onSuccess()
-            } catch (exc: Exception) {
-                onError("Error al inicializar cámara: ${exc.message}")
-            }
-        }, ContextCompat.getMainExecutor(context))
+            },
+            cameraExecutor
+        )
     }
 
     fun takePhoto(
         onPhotoTaken: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        val imageCapture = imageCapture ?: return
+        val imageCapture = imageCapture
+        if (imageCapture == null) {
+            Log.e("CameraManager", "❌ ImageCapture es null")
+            onError("Cámara no inicializada")
+            return
+        }
 
-        // Crear directorio para fotos
-        val photoDir = File(context.getExternalFilesDir(null), "photos")
+        val photoDir = File(context.filesDir, "photos")
         if (!photoDir.exists()) {
             photoDir.mkdirs()
         }
 
-        // Nombre del archivo
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
-        val photoFile = File(photoDir, "IMG_$timestamp.jpg")
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val photoFile = File(photoDir, "IMG_$timeStamp.jpg")
 
-        // Opciones de salida
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+        Log.d("CameraManager", "📸 Capturando foto...")
 
-        // Capturar foto
+        val outputFileOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
         imageCapture.takePicture(
-            outputOptions,
-            ContextCompat.getMainExecutor(context),
+            outputFileOptions,
+            cameraExecutor,
             object : ImageCapture.OnImageSavedCallback {
-                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    Log.d("CameraManager", "✅ Foto guardada: ${photoFile.absolutePath}")
                     onPhotoTaken(photoFile.absolutePath)
                 }
 
-                override fun onError(exc: ImageCaptureException) {
-                    onError("Error al capturar foto: ${exc.message}")
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e("CameraManager", "❌ Error al capturar: ${exception.imageCaptureError} - ${exception.message}", exception)
+                    onError("Error al capturar foto: ${exception.message}")
                 }
             }
         )
     }
 
     fun stopCamera() {
-        cameraProvider?.unbindAll()
+        try {
+            cameraProvider?.unbindAll()
+            Log.d("CameraManager", "🛑 Cámara detenida")
+        } catch (e: Exception) {
+            Log.e("CameraManager", "❌ Error al detener cámara: ${e.message}")
+        }
     }
 }
