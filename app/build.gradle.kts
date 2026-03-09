@@ -80,4 +80,5 @@ dependencies {
     // Firebase Realtime Database
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-storage:21.0.0")
 }

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
+import com.irrigacioninteligente.irrigacionydeteccion.firebase.FirebaseManager
 import com.irrigacioninteligente.irrigacionydeteccion.ui.components.IrrigationAppBar
 import com.irrigacioninteligente.irrigacionydeteccion.utils.CameraManager
 import com.irrigacioninteligente.irrigacionydeteccion.utils.TFLiteHelper
@@ -224,16 +225,13 @@ fun CameraCaptureScreen(navController: NavHostController) {
 
                         if (cameraInitialized.value && hasCameraAccess.value) {
                             Log.d("CameraCaptureScreen", "📸 Usando cámara real")
-                            // Usar cámara real
                             cameraManager.takePhoto(
                                 onPhotoTaken = { filePath ->
                                     procesarFoto(
                                         filePath = filePath,
                                         tfLiteHelper = tfLiteHelper,
+                                        navController = navController,
                                         onSuccess = {
-                                            navController.navigate("detection_result") {
-                                                popUpTo("camera_capture") { inclusive = true }
-                                            }
                                             isProcessing.value = false
                                             cameraManager.stopCamera()
                                         },
@@ -250,14 +248,11 @@ fun CameraCaptureScreen(navController: NavHostController) {
                             )
                         } else {
                             Log.d("CameraCaptureScreen", "🎬 Usando simulación")
-                            // Usar simulación
                             simulatePhotoCapture(
                                 context = context,
                                 tfLiteHelper = tfLiteHelper,
+                                navController = navController,
                                 onSuccess = {
-                                    navController.navigate("detection_result") {
-                                        popUpTo("camera_capture") { inclusive = true }
-                                    }
                                     isProcessing.value = false
                                 },
                                 onError = { error ->
@@ -300,23 +295,33 @@ fun CameraCaptureScreen(navController: NavHostController) {
 private fun procesarFoto(
     filePath: String,
     tfLiteHelper: TFLiteHelper,
+    navController: NavHostController,
     onSuccess: () -> Unit,
     onError: (String) -> Unit
 ) {
     try {
         val imageFile = File(filePath)
-
-        // Cargar Bitmap desde archivo
         val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
 
         if (bitmap != null) {
             Log.d("CameraCaptureScreen", "✅ Bitmap cargado: ${bitmap.width}x${bitmap.height}")
 
-            // Realizar detección de planta
             val result = tfLiteHelper.detectPlant(bitmap)
+            Log.d("CameraCaptureScreen", "✅ Detección: ${result.classLabel} (${result.confidence}%)")
 
-            Log.d("CameraCaptureScreen", "✅ Detección completa: ${result.classLabel} (${result.confidence}%)")
+            // Guardar resultado en Firebase
+            FirebaseManager.saveDetectionResult(
+                plantName = result.classLabel,
+                state = "detectada",
+                confidence = result.confidence.toFloat()
+            )
 
+            // Navegar a pantalla de resultados con parámetros convertidos a String
+            navController.navigate(
+                "detection_result/${result.classLabel}/detectada/${String.format("%.2f", result.confidence)}"
+            ) {
+                popUpTo("camera_capture") { inclusive = true }
+            }
             onSuccess()
         } else {
             Log.e("CameraCaptureScreen", "❌ No se pudo decodificar la imagen")
@@ -324,7 +329,7 @@ private fun procesarFoto(
         }
     } catch (e: Exception) {
         Log.e("CameraCaptureScreen", "❌ Error procesando foto: ${e.message}")
-        onError("Error al procesar foto: ${e.message}")
+        onError("Error al procesar foto: ${e.message ?: "desconocido"}")
     }
 }
 
@@ -334,6 +339,7 @@ private fun procesarFoto(
 private fun simulatePhotoCapture(
     context: Context,
     tfLiteHelper: TFLiteHelper,
+    navController: NavHostController,
     onSuccess: () -> Unit,
     onError: (String) -> Unit
 ) {
@@ -345,24 +351,32 @@ private fun simulatePhotoCapture(
 
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val photoFile = File(photoDir, "IMG_$timeStamp.jpg")
-
-        // Crear archivo dummy
         photoFile.writeText("Simulated photo captured at $timeStamp\nFor plant detection")
 
         Log.d("CameraCaptureScreen", "✅ Foto simulada guardada: ${photoFile.absolutePath}")
 
-        // Crear un bitmap de prueba (100x100 verde)
         val testBitmap = android.graphics.Bitmap.createBitmap(150, 150, android.graphics.Bitmap.Config.ARGB_8888)
         testBitmap.eraseColor(android.graphics.Color.GREEN)
 
-        // Realizar detección
         val result = tfLiteHelper.detectPlant(testBitmap)
-
         Log.d("CameraCaptureScreen", "✅ Detección simulada: ${result.classLabel} (${result.confidence}%)")
 
+        // Guardar resultado en Firebase
+        FirebaseManager.saveDetectionResult(
+            plantName = result.classLabel,
+            state = "detectada",
+            confidence = result.confidence.toFloat()
+        )
+
+        // Navegar a pantalla de resultados con parámetros convertidos a String
+        navController.navigate(
+            "detection_result/${result.classLabel}/detectada/${String.format("%.2f", result.confidence)}"
+        ) {
+            popUpTo("camera_capture") { inclusive = true }
+        }
         onSuccess()
     } catch (e: Exception) {
         Log.e("CameraCaptureScreen", "❌ Error: ${e.message}")
-        onError("Error al simular captura: ${e.message}")
+        onError("Error al simular captura: ${e.message ?: "desconocido"}")
     }
 }
