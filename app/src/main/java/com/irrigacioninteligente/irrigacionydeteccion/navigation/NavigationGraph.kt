@@ -65,12 +65,13 @@ fun IrrigationNavGraph(navController: NavHostController) {
             arguments = listOf(
                 navArgument("plantName") { type = NavType.StringType },
                 navArgument("state") { type = NavType.StringType },
-                navArgument("confidence") { type = NavType.FloatType }
+                navArgument("confidence") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             val plantName = backStackEntry.arguments?.getString("plantName") ?: "Desconocida"
             val state = backStackEntry.arguments?.getString("state") ?: "detectada"
-            val confidence = backStackEntry.arguments?.getFloat("confidence") ?: 0f
+            val confidenceStr = backStackEntry.arguments?.getString("confidence") ?: "0.0"
+            val confidence = confidenceStr.toFloatOrNull() ?: 0f  // ← Convierte a Float
 
             DetectionResultScreen(
                 plantName = plantName,

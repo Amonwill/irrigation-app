@@ -313,7 +313,7 @@ private fun procesarFoto(
             FirebaseManager.saveDetectionResult(
                 plantName = result.classLabel,
                 state = "detectada",
-                confidence = result.confidence.toFloat()
+                confidence = result.confidence
             )
 
             // Navegar a pantalla de resultados con parámetros convertidos a String
@@ -365,7 +365,7 @@ private fun simulatePhotoCapture(
         FirebaseManager.saveDetectionResult(
             plantName = result.classLabel,
             state = "detectada",
-            confidence = result.confidence.toFloat()
+            confidence = result.confidence
         )
 
         // Navegar a pantalla de resultados con parámetros convertidos a String
