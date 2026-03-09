@@ -16,12 +16,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.irrigacioninteligente.irrigacionydeteccion.firebase.FirebaseManager
 import com.irrigacioninteligente.irrigacionydeteccion.ui.components.CustomButton
 import com.irrigacioninteligente.irrigacionydeteccion.ui.components.CameraPreview
 import com.irrigacioninteligente.irrigacionydeteccion.ui.components.IrrigationAppBar
@@ -30,8 +32,22 @@ import com.irrigacioninteligente.irrigacionydeteccion.utils.Constants
 @Composable
 fun DetectionResultScreen(
     onBackClick: () -> Unit,
-    onRetakeClick: () -> Unit
+    onRetakeClick: () -> Unit,
+    plantName: String = Constants.SAMPLE_PLANT_NAME,
+    state: String = Constants.SAMPLE_STATE,
+    confidence: Float = Constants.SAMPLE_CONFIDENCE
 ) {
+    // Guardar resultado de detección en Firebase
+    LaunchedEffect(Unit) {
+        FirebaseManager.saveDetectionResult(
+            plantName = plantName,
+            state = state,
+            confidence = confidence,
+            timestamp = System.currentTimeMillis()
+        )
+        println("✅ Resultado de detección guardado: $plantName - $state (${confidence.toInt()}%)")
+    }
+
     Scaffold(
         topBar = {
             IrrigationAppBar(onBackClick = onBackClick)
@@ -68,7 +84,7 @@ fun DetectionResultScreen(
                 ) {
                     // Título del resultado
                     Text(
-                        text = Constants.SAMPLE_PLANT_NAME,
+                        text = plantName,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -78,7 +94,7 @@ fun DetectionResultScreen(
 
                     // Estado
                     Text(
-                        text = "Estado: ${Constants.SAMPLE_STATE}",
+                        text = "Estado: $state",
                         fontSize = 12.sp,
                         color = Color.White
                     )
@@ -87,10 +103,27 @@ fun DetectionResultScreen(
 
                     // Confianza
                     Text(
-                        text = "Confianza: ${Constants.SAMPLE_CONFIDENCE.toInt()}%",
+                        text = "Confianza: ${confidence.toInt()}%",
                         fontSize = 12.sp,
                         color = Color.White
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Barra de progreso de confianza
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(confidence / 100f)
+                                .height(8.dp)
+                                .background(Color.White, RoundedCornerShape(4.dp))
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 

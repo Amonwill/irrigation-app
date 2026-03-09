@@ -40,6 +40,50 @@ object FirebaseManager {
             }
     }
 
+    // Guardar resultado de detección (IA/ML)
+    fun saveDetectionResult(
+        plantName: String,
+        state: String,
+        confidence: Float,
+        timestamp: Long = System.currentTimeMillis()
+    ) {
+        val detectionData = mapOf(
+            "Nombre_planta" to plantName,
+            "Estado" to state,
+            "Confianza" to confidence,
+            "Timestamp" to timestamp
+        )
+
+        database.child("Detecciones").child(timestamp.toString()).setValue(detectionData)
+            .addOnSuccessListener {
+                println("✅ Detección guardada: $plantName - $state (${confidence.toInt()}%)")
+            }
+            .addOnFailureListener { e ->
+                println("❌ Error guardando detección: ${e.message}")
+            }
+    }
+
+    // Obtener todas las detecciones
+    fun getAllDetections(callback: (List<Map<String, Any>>) -> Unit) {
+        database.child("Detecciones").get()
+            .addOnSuccessListener { snapshot ->
+                val detectionsList = mutableListOf<Map<String, Any>>()
+                if (snapshot.exists()) {
+                    for (child in snapshot.children) {
+                        @Suppress("UNCHECKED_CAST")
+                        child.value?.let {
+                            detectionsList.add(it as Map<String, Any>)
+                        }
+                    }
+                }
+                callback(detectionsList)
+            }
+            .addOnFailureListener { e ->
+                println("❌ Error obteniendo detecciones: ${e.message}")
+                callback(emptyList())
+            }
+    }
+
     // Guardar historial de aprendizaje
     fun saveLearningHistory(
         pk: String,
