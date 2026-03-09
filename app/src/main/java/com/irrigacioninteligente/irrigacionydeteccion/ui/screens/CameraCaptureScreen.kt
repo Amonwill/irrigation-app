@@ -3,6 +3,7 @@ package com.irrigacioninteligente.irrigacionydeteccion.ui.screens
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -113,7 +114,6 @@ fun CameraCaptureScreen(navController: NavHostController) {
             .background(Color.White)
     ) {
         IrrigationAppBar(
-            title = "IRRIGACION INTELIGENTE",
             onBackClick = { navController.popBackStack() }
         )
 
@@ -227,11 +227,10 @@ fun CameraCaptureScreen(navController: NavHostController) {
                             // Usar cámara real
                             cameraManager.takePhoto(
                                 onPhotoTaken = { filePath ->
-                                    val imageFile = File(filePath)
-                                    tfLiteHelper.detectPlantFromFile(
-                                        imageFile,
-                                        onSuccess = { result ->
-                                            Log.d("CameraCapture", "✅ Detección: ${result.classLabel}")
+                                    procesarFoto(
+                                        filePath = filePath,
+                                        tfLiteHelper = tfLiteHelper,
+                                        onSuccess = {
                                             navController.navigate("detection_result") {
                                                 popUpTo("camera_capture") { inclusive = true }
                                             }
@@ -296,6 +295,40 @@ fun CameraCaptureScreen(navController: NavHostController) {
 }
 
 /**
+ * Procesa una foto capturada por la cámara real
+ */
+private fun procesarFoto(
+    filePath: String,
+    tfLiteHelper: TFLiteHelper,
+    onSuccess: () -> Unit,
+    onError: (String) -> Unit
+) {
+    try {
+        val imageFile = File(filePath)
+
+        // Cargar Bitmap desde archivo
+        val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+
+        if (bitmap != null) {
+            Log.d("CameraCaptureScreen", "✅ Bitmap cargado: ${bitmap.width}x${bitmap.height}")
+
+            // Realizar detección de planta
+            val result = tfLiteHelper.detectPlant(bitmap)
+
+            Log.d("CameraCaptureScreen", "✅ Detección completa: ${result.classLabel} (${result.confidence}%)")
+
+            onSuccess()
+        } else {
+            Log.e("CameraCaptureScreen", "❌ No se pudo decodificar la imagen")
+            onError("No se pudo cargar la imagen capturada")
+        }
+    } catch (e: Exception) {
+        Log.e("CameraCaptureScreen", "❌ Error procesando foto: ${e.message}")
+        onError("Error al procesar foto: ${e.message}")
+    }
+}
+
+/**
  * Simula una captura de foto con detección
  */
 private fun simulatePhotoCapture(
@@ -316,21 +349,20 @@ private fun simulatePhotoCapture(
         // Crear archivo dummy
         photoFile.writeText("Simulated photo captured at $timeStamp\nFor plant detection")
 
-        Log.d("CameraCapture", "✅ Foto simulada guardada: ${photoFile.absolutePath}")
+        Log.d("CameraCaptureScreen", "✅ Foto simulada guardada: ${photoFile.absolutePath}")
 
-        // Realizar detección simulada
-        tfLiteHelper.detectPlantFromFile(
-            photoFile,
-            onSuccess = { result ->
-                Log.d("CameraCapture", "✅ Detección: ${result.classLabel}")
-                onSuccess()
-            },
-            onError = { error ->
-                onError(error)
-            }
-        )
+        // Crear un bitmap de prueba (100x100 verde)
+        val testBitmap = android.graphics.Bitmap.createBitmap(150, 150, android.graphics.Bitmap.Config.ARGB_8888)
+        testBitmap.eraseColor(android.graphics.Color.GREEN)
+
+        // Realizar detección
+        val result = tfLiteHelper.detectPlant(testBitmap)
+
+        Log.d("CameraCaptureScreen", "✅ Detección simulada: ${result.classLabel} (${result.confidence}%)")
+
+        onSuccess()
     } catch (e: Exception) {
-        Log.e("CameraCapture", "❌ Error: ${e.message}")
+        Log.e("CameraCaptureScreen", "❌ Error: ${e.message}")
         onError("Error al simular captura: ${e.message}")
     }
 }
