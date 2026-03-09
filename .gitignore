@@ -1,20 +1,3 @@
-<<<<<<< HEAD
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-=======
 # Gradle files
 .gradle/
 build/
@@ -49,4 +32,6 @@ google-services.json
 
 # Android Profiling
 *.hprof
->>>>>>> 0ed78c610eb1b71614f897044c8cf4db74bc2a09
+
+# OS
+.DS_Store
