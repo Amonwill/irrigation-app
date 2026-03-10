@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import com.irrigacioninteligente.irrigacionydeteccion.ui.screens.CameraCaptureScreen
+import com.irrigacioninteligente.irrigacionydeteccion.ui.screens.ControlScreen
 import com.irrigacioninteligente.irrigacionydeteccion.ui.screens.DataHistoryScreen
 import com.irrigacioninteligente.irrigacionydeteccion.ui.screens.DetectionResultScreen
 import com.irrigacioninteligente.irrigacionydeteccion.ui.screens.MainMenuScreen
@@ -18,6 +19,7 @@ sealed class IrrigationScreen(val route: String) {
     object Splash : IrrigationScreen("splash")
     object MainMenu : IrrigationScreen("main_menu")
     object CameraCapture : IrrigationScreen("camera_capture")
+    object Control : IrrigationScreen("control")
     object DetectionResult : IrrigationScreen("detection_result/{plantName}/{state}/{confidence}")
     object DataHistory : IrrigationScreen("data_history")
 }
@@ -30,6 +32,7 @@ fun IrrigationNavGraph(navController: NavHostController) {
         navController = navController,
         startDestination = IrrigationScreen.Splash.route
     ) {
+        // Pantalla de bienvenida
         composable(IrrigationScreen.Splash.route) {
             SplashScreen(
                 onConnectClick = {
@@ -40,26 +43,22 @@ fun IrrigationNavGraph(navController: NavHostController) {
             )
         }
 
+        // Menú principal
         composable(IrrigationScreen.MainMenu.route) {
-            MainMenuScreen(
-                onDetectClick = {
-                    navController.navigate(IrrigationScreen.CameraCapture.route)
-                },
-                onHistoryClick = {
-                    navController.navigate(IrrigationScreen.DataHistory.route)
-                },
-                onDisconnectClick = {
-                    navController.navigate(IrrigationScreen.Splash.route) {
-                        popUpTo(0)
-                    }
-                }
-            )
+            MainMenuScreen(navController = navController)
         }
 
+        // Captura de cámara
         composable(IrrigationScreen.CameraCapture.route) {
             CameraCaptureScreen(navController = navController)
         }
 
+        // Panel de control
+        composable(IrrigationScreen.Control.route) {
+            ControlScreen(navController = navController)
+        }
+
+        // Resultado de detección
         composable(
             route = "detection_result/{plantName}/{state}/{confidence}",
             arguments = listOf(
@@ -71,7 +70,7 @@ fun IrrigationNavGraph(navController: NavHostController) {
             val plantName = backStackEntry.arguments?.getString("plantName") ?: "Desconocida"
             val state = backStackEntry.arguments?.getString("state") ?: "detectada"
             val confidenceStr = backStackEntry.arguments?.getString("confidence") ?: "0.0"
-            val confidence = confidenceStr.toFloatOrNull() ?: 0f  // ← Convierte a Float
+            val confidence = confidenceStr.toFloatOrNull() ?: 0f
 
             DetectionResultScreen(
                 plantName = plantName,
@@ -88,6 +87,7 @@ fun IrrigationNavGraph(navController: NavHostController) {
             )
         }
 
+        // Historial de datos
         composable(IrrigationScreen.DataHistory.route) {
             DataHistoryScreen(
                 onBackClick = {

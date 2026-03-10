@@ -1,21 +1,11 @@
 package com.irrigacioninteligente.irrigacionydeteccion.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,39 +14,25 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
 import com.irrigacioninteligente.irrigacionydeteccion.R
-import com.irrigacioninteligente.irrigacionydeteccion.firebase.FirebaseManager
-import com.irrigacioninteligente.irrigacionydeteccion.ui.components.CustomButton
-import com.irrigacioninteligente.irrigacionydeteccion.ui.components.IrrigationAppBar
 import com.irrigacioninteligente.irrigacionydeteccion.utils.Constants
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainMenuScreen(
-    onDetectClick: () -> Unit,
-    onHistoryClick: () -> Unit,
-    onDisconnectClick: () -> Unit
-) {
-    val connectionStatus = remember { mutableStateOf("Conectando...") }
-    val statusColor = remember { mutableStateOf(Color.Gray) }
-
-    // Obtener configuración de Firebase al cargar
-    LaunchedEffect(Unit) {
-        FirebaseManager.getConfiguration { config ->
-            if (config != null) {
-                connectionStatus.value = "✅ Conectado"
-                statusColor.value = Color(0xFF4CAF50) // Verde
-                println("✅ Configuración obtenida de Firebase")
-            } else {
-                connectionStatus.value = "⚠️ Sin configuración"
-                statusColor.value = Color(0xFFFFC107) // Amarillo
-                println("⚠️ No hay configuración en Firebase")
-            }
-        }
-    }
+fun MainMenuScreen(navController: NavHostController) {
+    var plantName by remember { mutableStateOf("Aloe Vera") }
+    var humidityThreshold by remember { mutableStateOf(40) }
 
     Scaffold(
         topBar = {
-            IrrigationAppBar()
+            TopAppBar(
+                title = { Text("IRRIGACION INTELIGENTE") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(Constants.PURPLE_PRIMARY),
+                    titleContentColor = Color.White
+                )
+            )
         }
     ) { paddingValues ->
         Column(
@@ -65,77 +41,136 @@ fun MainMenuScreen(
                 .background(Color.White)
                 .padding(paddingValues)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
             // Estado de conexión
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(
+                        Color(0xFFD4EDDA),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp)
             ) {
-                Text(
-                    text = "Estado: ",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Gray
-                )
-                Text(
-                    text = connectionStatus.value,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = statusColor.value
-                )
+                Column {
+                    Text(
+                        "✅ Dispositivo Conectado",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF155724)
+                    )
+                    Text(
+                        "Planta: $plantName | Umbral: $humidityThreshold%",
+                        fontSize = 12.sp,
+                        color = Color(0xFF155724)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(30.dp))
 
+            // Logo
             Image(
                 painter = painterResource(id = R.drawable.aloe_vera_icon),
                 contentDescription = "Aloe Vera Icon",
-                modifier = Modifier.size(180.dp),
+                modifier = Modifier.size(150.dp),
                 contentScale = ContentScale.Fit
             )
 
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             // Botón detectar planta
-            CustomButton(
-                text = Constants.BTN_DETECT_PLANT,
-                onClick = onDetectClick,
+            Button(
+                onClick = {
+                    navController.navigate(Constants.ROUTE_CAMERA)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                isPrimary = true
-            )
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(Constants.GREEN_PLANT)
+                )
+            ) {
+                Text(
+                    "📷 Detectar Planta",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Botón panel de control
+            Button(
+                onClick = {
+                    navController.navigate(Constants.ROUTE_CONTROL)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00ACC1)
+                )
+            ) {
+                Text(
+                    "🎮 Panel de Control",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Botón historial
-            CustomButton(
-                text = Constants.BTN_DATA_HISTORY,
-                onClick = onHistoryClick,
+            Button(
+                onClick = {
+                    navController.navigate(Constants.ROUTE_DATA_HISTORY)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                isPrimary = true
-            )
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(Constants.PURPLE_PRIMARY)
+                )
+            ) {
+                Text(
+                    "📊 Historial de Datos",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Botón desconectar
-            CustomButton(
-                text = Constants.BTN_DISCONNECT,
-                onClick = onDisconnectClick,
+            Button(
+                onClick = {
+                    Log.d("MainMenuScreen", "🔌 Desconectado")
+                    navController.navigate(Constants.ROUTE_SPLASH) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                isPrimary = false
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
+                    .height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(Constants.GRAY_BUTTON)
+                )
+            ) {
+                Text(
+                    Constants.BTN_DISCONNECT,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
         }
     }
 }

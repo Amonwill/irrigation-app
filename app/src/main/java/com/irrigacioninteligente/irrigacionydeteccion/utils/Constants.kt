@@ -5,8 +5,9 @@ object Constants {
     const val ROUTE_SPLASH = "splash"
     const val ROUTE_MAIN_MENU = "main_menu"
     const val ROUTE_DATA_HISTORY = "data_history"
-    const val ROUTE_CAMERA = "camera"
+    const val ROUTE_CAMERA = "camera_capture"
     const val ROUTE_DETECTION_RESULT = "detection_result"
+    const val ROUTE_CONTROL = "control"
 
     // Colores hexadecimales personalizados
     const val PURPLE_PRIMARY = 0xFF6B4CE6
@@ -20,6 +21,7 @@ object Constants {
     const val BTN_CONNECT_DEVICE = "CONECTAR DISPOSITIVO"
     const val BTN_DETECT_PLANT = "Detectar Aloe Vera (Abrir Cámara)"
     const val BTN_DATA_HISTORY = "Historial de datos"
+    const val BTN_CONTROL = "Panel de Control"
     const val BTN_DISCONNECT = "DESCONECTAR DISPOSITIVO"
     const val BTN_BACK = "ATRÁS"
     const val BTN_TAKE_PHOTO = "TOMAR FOTO"
@@ -27,5 +29,5 @@ object Constants {
     // Datos de ejemplo
     const val SAMPLE_PLANT_NAME = "ALOE VERA DETECTADA"
     const val SAMPLE_CONFIDENCE = 87f
-    const val SAMPLE_STATE = "saba"
+    const val SAMPLE_STATE = "saludable"
 }
