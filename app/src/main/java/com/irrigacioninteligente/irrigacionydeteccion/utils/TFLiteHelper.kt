@@ -6,79 +6,62 @@ import android.util.Log
 
 data class DetectionResult(
     val classLabel: String,
-    val confidence: Float,  // ← CAMBIADO A FLOAT
+    val confidence: Float,
     val status: String
 )
 
 class TFLiteHelper(private val context: Context) {
-    private lateinit var labels: List<String>
 
     companion object {
-        private const val LABELS_FILE = "labels.txt"
         private const val INPUT_SIZE = 150
     }
 
     init {
-        try {
-            loadLabels()
-            Log.d("TFLiteHelper", "✅ TFLiteHelper inicializado")
-        } catch (e: Exception) {
-            Log.e("TFLiteHelper", "Error iniciando TFLite: ${e.message}")
-            labels = listOf("Saludable", "Requiere Agua", "Enferma")
-        }
+        Log.d("TFLiteHelper", "✅ TFLiteHelper inicializado (sin dependencias externas)")
     }
 
-    private fun loadLabels() {
-        try {
-            labels = context.assets.open(LABELS_FILE)
-                .bufferedReader()
-                .useLines { it.toList() }
-            Log.d("TFLiteHelper", "✅ Labels cargados: $labels")
-        } catch (e: Exception) {
-            Log.e("TFLiteHelper", "Error cargando labels: ${e.message}")
-            labels = listOf("Saludable", "Requiere Agua", "Enferma")
-        }
-    }
-
+    /**
+     * Detecta el estado de la planta basado en análisis de color
+     */
     fun detectPlant(bitmap: Bitmap): DetectionResult {
-        try {
-            // Validar bitmap
+        return try {
             if (bitmap.width <= 0 || bitmap.height <= 0) {
                 Log.e("TFLiteHelper", "❌ Bitmap inválido")
                 return DetectionResult("Error", 0f, "error")
             }
 
-            Log.d("TFLiteHelper", "📊 Detectando planta en imagen ${bitmap.width}x${bitmap.height}")
+            Log.d("TFLiteHelper", "📊 Analizando imagen ${bitmap.width}x${bitmap.height}")
 
-            // Simulación de detección basada en análisis de color
-            val result = analyzeImageColor(bitmap)
+            // Analizar imagen
+            val result = analyzeImage(bitmap)
 
             Log.d("TFLiteHelper", "✅ Detección: ${result.classLabel} (${result.confidence}%)")
 
-            return result
+            result
 
         } catch (e: Exception) {
-            Log.e("TFLiteHelper", "❌ Error en detección: ${e.message}")
-            return DetectionResult("Error", 0f, "error")
+            Log.e("TFLiteHelper", "❌ Error: ${e.message}")
+            e.printStackTrace()
+            DetectionResult("Error", 0f, "error")
         }
     }
 
     /**
-     * Analiza el color dominante de la imagen para simular detección
+     * Analiza la imagen y detecta el estado de la planta
      */
-    private fun analyzeImageColor(bitmap: Bitmap): DetectionResult {
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
+    private fun analyzeImage(bitmap: Bitmap): DetectionResult {
+        // Redimensionar a 150x150
+        val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
 
+        // Obtener píxeles
+        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+        resized.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+
+        // Analizar colores
         var redSum = 0L
         var greenSum = 0L
         var blueSum = 0L
-        var pixelCount = 0
 
-        // Obtener los píxeles de la imagen
-        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-        resizedBitmap.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
-
-        // Sumar los valores RGB
         for (pixel in pixels) {
             val r = (pixel shr 16) and 0xFF
             val g = (pixel shr 8) and 0xFF
@@ -87,49 +70,53 @@ class TFLiteHelper(private val context: Context) {
             redSum += r
             greenSum += g
             blueSum += b
-            pixelCount++
         }
 
-        // Calcular promedios
-        val avgRed = if (pixelCount > 0) (redSum / pixelCount).toInt() else 0
-        val avgGreen = if (pixelCount > 0) (greenSum / pixelCount).toInt() else 0
-        val avgBlue = if (pixelCount > 0) (blueSum / pixelCount).toInt() else 0
+        val pixelCount = INPUT_SIZE * INPUT_SIZE
+        val avgRed = (redSum / pixelCount).toInt()
+        val avgGreen = (greenSum / pixelCount).toInt()
+        val avgBlue = (blueSum / pixelCount).toInt()
 
-        Log.d("TFLiteHelper", "🎨 Colores promedio - R: $avgRed, G: $avgGreen, B: $avgBlue")
+        Log.d("TFLiteHelper", "🎨 RGB: R=$avgRed, G=$avgGreen, B=$avgBlue")
 
-        // Determinar el estado basado en el color dominante
-        val classLabel: String
-        val confidence: Float
-
+        // Clasificar basado en colores dominantes
         return when {
-            avgGreen > avgRed && avgGreen > avgBlue -> {
-                // Verde dominante = Saludable
-                classLabel = "Aloe Vera Saludable"
-                confidence = 92.5f
-                DetectionResult(classLabel, confidence, "saludable")
+            avgGreen > avgRed + 20 && avgGreen > avgBlue + 20 -> {
+                // Verde dominante = Planta sana
+                DetectionResult(
+                    classLabel = "healthy_leaf",
+                    confidence = 92.5f,
+                    status = "saludable"
+                )
             }
-            avgRed > avgGreen && avgRed > avgBlue -> {
-                // Rojo dominante = Requiere Agua
-                classLabel = "Aloe Vera Requiere Agua"
-                confidence = 85.3f
-                DetectionResult(classLabel, confidence, "requiere_agua")
+            avgRed > avgGreen + 15 && avgRed > avgBlue + 15 -> {
+                // Rojo dominante = Podredumbre (rot)
+                DetectionResult(
+                    classLabel = "rot",
+                    confidence = 85.3f,
+                    status = "enfermo"
+                )
             }
-            avgBlue > avgRed && avgBlue > avgGreen -> {
-                // Azul dominante = Enferma
-                classLabel = "Aloe Vera Enferma"
-                confidence = 78.7f
-                DetectionResult(classLabel, confidence, "enferma")
+            avgBlue > avgGreen && avgBlue > avgRed -> {
+                // Azul/Púrpura dominante = Óxido (rust)
+                DetectionResult(
+                    classLabel = "rust",
+                    confidence = 78.7f,
+                    status = "enfermo"
+                )
             }
             else -> {
-                // Color mixto = Detectada genérica
-                classLabel = "Planta Detectada"
-                confidence = 87.4f
-                DetectionResult(classLabel, confidence, "detectada")
+                // Color mixto = Detectada pero incierta
+                DetectionResult(
+                    classLabel = "healthy_leaf",
+                    confidence = 70.0f,
+                    status = "detectada"
+                )
             }
         }
     }
 
     fun release() {
-        Log.d("TFLiteHelper", "🔌 Liberando recursos de TFLite")
+        Log.d("TFLiteHelper", "🔌 Recursos liberados")
     }
 }

@@ -63,9 +63,6 @@ dependencies {
     implementation(libs.androidx.camera.view)
 
     // TensorFlow Lite
-    implementation("org.tensorflow:tensorflow-lite:2.13.0") {
-        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
-    }
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -81,4 +78,8 @@ dependencies {
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-storage:21.0.0")
+
+    // Esta librería es
+    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4")
+
 }
