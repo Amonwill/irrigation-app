@@ -3,120 +3,71 @@ package com.irrigacioninteligente.irrigacionydeteccion.utils
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-
-data class DetectionResult(
-    val classLabel: String,
-    val confidence: Float,
-    val status: String
-)
+import org.tensorflow.lite.support.common.ops.NormalizeOp
+import org.tensorflow.lite.support.image.ImageProcessor
+import org.tensorflow.lite.support.image.TensorImage
+import org.tensorflow.lite.support.image.ops.ResizeOp
+import org.tensorflow.lite.task.vision.classifier.Classifications
+import org.tensorflow.lite.task.vision.classifier.ImageClassifier
 
 class TFLiteHelper(private val context: Context) {
 
-    companion object {
-        private const val INPUT_SIZE = 150
-    }
+    private var imageClassifier: ImageClassifier? = null
 
     init {
-        Log.d("TFLiteHelper", "✅ TFLiteHelper inicializado (sin dependencias externas)")
+        setupImageClassifier()
     }
 
-    /**
-     * Detecta el estado de la planta basado en análisis de color
-     */
-    fun detectPlant(bitmap: Bitmap): DetectionResult {
-        return try {
-            if (bitmap.width <= 0 || bitmap.height <= 0) {
-                Log.e("TFLiteHelper", "❌ Bitmap inválido")
-                return DetectionResult("Error", 0f, "error")
-            }
+    private fun setupImageClassifier() {
+        val optionsBuilder = ImageClassifier.ImageClassifierOptions.builder()
+            .setScoreThreshold(0.4f) // Umbral de confianza del 40%
+            .setMaxResults(1)
+            .build()
 
-            Log.d("TFLiteHelper", "📊 Analizando imagen ${bitmap.width}x${bitmap.height}")
-
-            // Analizar imagen
-            val result = analyzeImage(bitmap)
-
-            Log.d("TFLiteHelper", "✅ Detección: ${result.classLabel} (${result.confidence}%)")
-
-            result
-
+        try {
+            imageClassifier = ImageClassifier.createFromFileAndOptions(
+                context,
+                "aloe_vera_model.tflite", // Archivo en carpeta assets
+                optionsBuilder
+            )
+            Log.d("TFLiteHelper", "✅ Modelo cargado correctamente")
         } catch (e: Exception) {
-            Log.e("TFLiteHelper", "❌ Error: ${e.message}")
-            e.printStackTrace()
-            DetectionResult("Error", 0f, "error")
+            Log.e("TFLiteHelper", "❌ Error al cargar modelo: ${e.message}")
         }
     }
 
-    /**
-     * Analiza la imagen y detecta el estado de la planta
-     */
-    private fun analyzeImage(bitmap: Bitmap): DetectionResult {
-        // Redimensionar a 150x150
-        val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
+    fun classifyImage(bitmap: Bitmap): List<Classifications>? {
+        if (imageClassifier == null) return null
 
-        // Obtener píxeles
-        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-        resized.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+        return try {
+            // Configuración que coincide con tu entrenamiento de Python (150x150 y rescale 1/255)
+            val imageProcessor = ImageProcessor.Builder()
+                .add(ResizeOp(150, 150, ResizeOp.ResizeMethod.BILINEAR))
+                .add(NormalizeOp(0f, 255f)) // Normaliza píxeles al rango 0.0 - 1.0
+                .build()
 
-        // Analizar colores
-        var redSum = 0L
-        var greenSum = 0L
-        var blueSum = 0L
+            var tensorImage = TensorImage.fromBitmap(bitmap)
+            tensorImage = imageProcessor.process(tensorImage)
 
-        for (pixel in pixels) {
-            val r = (pixel shr 16) and 0xFF
-            val g = (pixel shr 8) and 0xFF
-            val b = pixel and 0xFF
+            val results = imageClassifier?.classify(tensorImage)
 
-            redSum += r
-            greenSum += g
-            blueSum += b
-        }
-
-        val pixelCount = INPUT_SIZE * INPUT_SIZE
-        val avgRed = (redSum / pixelCount).toInt()
-        val avgGreen = (greenSum / pixelCount).toInt()
-        val avgBlue = (blueSum / pixelCount).toInt()
-
-        Log.d("TFLiteHelper", "🎨 RGB: R=$avgRed, G=$avgGreen, B=$avgBlue")
-
-        // Clasificar basado en colores dominantes
-        return when {
-            avgGreen > avgRed + 20 && avgGreen > avgBlue + 20 -> {
-                // Verde dominante = Planta sana
-                DetectionResult(
-                    classLabel = "healthy_leaf",
-                    confidence = 92.5f,
-                    status = "saludable"
-                )
+            // Log de depuración para ver el índice real que devuelve la red neuronal
+            results?.forEach { classification ->
+                val top = classification.categories.firstOrNull()
+                if (top != null) {
+                    Log.d("TFLiteHelper", "🌿 IA Detectó Índice: ${top.index} | Label: '${top.label}' | Confianza: ${top.score * 100}%")
+                }
             }
-            avgRed > avgGreen + 15 && avgRed > avgBlue + 15 -> {
-                // Rojo dominante = Podredumbre (rot)
-                DetectionResult(
-                    classLabel = "rot",
-                    confidence = 85.3f,
-                    status = "enfermo"
-                )
-            }
-            avgBlue > avgGreen && avgBlue > avgRed -> {
-                // Azul/Púrpura dominante = Óxido (rust)
-                DetectionResult(
-                    classLabel = "rust",
-                    confidence = 78.7f,
-                    status = "enfermo"
-                )
-            }
-            else -> {
-                // Color mixto = Detectada pero incierta
-                DetectionResult(
-                    classLabel = "healthy_leaf",
-                    confidence = 70.0f,
-                    status = "detectada"
-                )
-            }
+
+            results
+        } catch (e: Exception) {
+            Log.e("TFLiteHelper", "❌ Error en clasificación: ${e.message}")
+            null
         }
     }
 
     fun release() {
+        imageClassifier?.close()
         Log.d("TFLiteHelper", "🔌 Recursos liberados")
     }
 }

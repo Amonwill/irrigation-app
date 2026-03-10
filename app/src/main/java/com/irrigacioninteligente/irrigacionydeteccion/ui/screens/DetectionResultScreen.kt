@@ -2,6 +2,7 @@ package com.irrigacioninteligente.irrigacionydeteccion.ui.screens
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,19 +37,15 @@ fun DetectionResultScreen(
     state: String = "detectada",
     confidence: Float = 0f
 ) {
-    // Guardar resultado de detección en Firebase
+    // Persistencia automática en Firebase al cargar el resultado real de la IA
     LaunchedEffect(Unit) {
-        Log.d("DetectionResultScreen", "📸 Parámetros recibidos:")
-        Log.d("DetectionResultScreen", "  - Planta: $plantName")
-        Log.d("DetectionResultScreen", "  - Estado: $state")
-        Log.d("DetectionResultScreen", "  - Confianza: $confidence%")
+        Log.d("DetectionResultScreen", "📊 Procesando resultado final de clasificación")
 
         FirebaseManager.saveDetectionResult(
             plantName = plantName,
             state = state,
             confidence = confidence
         )
-        Log.d("DetectionResultScreen", "✅ Resultado guardado en Firebase")
     }
 
     Scaffold(
@@ -66,19 +63,19 @@ fun DetectionResultScreen(
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Emoji de planta
+            // Icono representativo de éxito
             Text(
                 text = "🌿",
                 fontSize = 80.sp,
                 modifier = Modifier.padding(bottom = 20.dp)
             )
 
-            // Tarjeta de resultado (púrpura/magenta)
+            // Tarjeta de Resultados Reales
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        color = Color(0xFF7C3AED),
+                        color = Color(0xFF7C3AED), // Color Púrpura Primario
                         shape = RoundedCornerShape(16.dp)
                     )
                     .padding(20.dp)
@@ -87,9 +84,8 @@ fun DetectionResultScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Título del resultado
                     Text(
-                        text = "✓ Detección Completada",
+                        text = "✓ Clasificación Exitosa",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -97,17 +93,16 @@ fun DetectionResultScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Nombre de la planta (grande y prominente)
+                    // Nombre obtenido del Label del archivo .tflite
                     Text(
-                        text = plantName,
-                        fontSize = 28.sp,
+                        text = plantName.replace("_", " ").uppercase(),
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Divisor
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -117,12 +112,11 @@ fun DetectionResultScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Información en filas
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceAround
+                        horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        // Estado
+                        // Estado de salud detectado por la IA
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
@@ -142,7 +136,6 @@ fun DetectionResultScreen(
                             )
                         }
 
-                        // Separador vertical
                         Box(
                             modifier = Modifier
                                 .width(1.dp)
@@ -150,13 +143,13 @@ fun DetectionResultScreen(
                                 .background(Color.White.copy(alpha = 0.3f))
                         )
 
-                        // Confianza
+                        // Confianza real del modelo
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = "CONFIANZA",
+                                text = "PRECISIÓN",
                                 fontSize = 10.sp,
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontWeight = FontWeight.SemiBold
@@ -173,44 +166,36 @@ fun DetectionResultScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Barra de progreso (confianza visual)
+                    // Indicador visual de confianza
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
+                            .height(8.dp)
                             .background(
-                                color = Color.White.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(3.dp)
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(4.dp)
                             )
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(confidence / 100f)
-                                .height(6.dp)
+                                .height(8.dp)
                                 .background(
                                     color = when {
-                                        confidence >= 80f -> Color(0xFF4CAF50) // Verde
-                                        confidence >= 60f -> Color(0xFFFFC107) // Amarillo
-                                        else -> Color(0xFFFF5252) // Rojo
+                                        confidence >= 80f -> Color(0xFF4CAF50) // Verde: Alta confianza
+                                        confidence >= 60f -> Color(0xFFFFC107) // Amarillo: Media
+                                        else -> Color(0xFFFF5252) // Rojo: Baja
                                     },
-                                    shape = RoundedCornerShape(3.dp)
+                                    shape = RoundedCornerShape(4.dp)
                                 )
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Nivel de confianza",
-                        fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Información adicional
+            // Detalle Temporal
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -220,57 +205,22 @@ fun DetectionResultScreen(
                     )
                     .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column {
                     Text(
-                        text = "Información de la Detección",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "Detalles de Telemetría",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Línea: Planta
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Planta:",
-                            fontSize = 11.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.weight(0.3f)
-                        )
-                        Text(
-                            text = plantName,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.weight(0.7f)
-                        )
-                    }
-
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Línea: Timestamp
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text("Registro:", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.weight(1f))
                         Text(
-                            text = "Hora:",
+                            text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date()),
                             fontSize = 11.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.weight(0.3f)
-                        )
-                        Text(
-                            text = SimpleDateFormat("HH:mm:ss").format(Date()),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.weight(0.7f)
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
                         )
                     }
                 }
@@ -278,30 +228,21 @@ fun DetectionResultScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Botones de acción
+            // Navegación
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Botón Volver
                 CustomButton(
-                    text = "VOLVER",
+                    text = "MENU PRINCIPAL",
                     onClick = onBackClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
+                    modifier = Modifier.weight(1f),
                     isPrimary = false
                 )
-
-                // Botón Retomar
                 CustomButton(
-                    text = "RETOMAR",
+                    text = "NUEVA CAPTURA",
                     onClick = onRetakeClick,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
+                    modifier = Modifier.weight(1f),
                     isPrimary = true
                 )
             }

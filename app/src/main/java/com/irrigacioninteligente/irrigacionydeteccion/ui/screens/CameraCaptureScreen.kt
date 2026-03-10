@@ -1,7 +1,6 @@
 package com.irrigacioninteligente.irrigacionydeteccion.ui.screens
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -32,8 +31,6 @@ import com.irrigacioninteligente.irrigacionydeteccion.utils.MockSensorManager
 import com.irrigacioninteligente.irrigacionydeteccion.utils.TFLiteHelper
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun CameraCaptureScreen(navController: NavHostController) {
@@ -41,6 +38,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
+    // Inicialización de utilidades con persistencia en la composición
     val cameraManager = remember { CameraManager(context) }
     val tfLiteHelper = remember { TFLiteHelper(context) }
     val mockSensorManager = remember { MockSensorManager() }
@@ -51,30 +49,24 @@ fun CameraCaptureScreen(navController: NavHostController) {
     val hasCameraAccess = remember { mutableStateOf(false) }
     val cameraInitialized = remember { mutableStateOf(false) }
 
+    // Launcher para solicitar permisos de cámara
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        Log.d("CameraCaptureScreen", "📋 Permiso otorgado: $isGranted")
         hasCameraAccess.value = isGranted
         if (isGranted) {
             cameraInitialized.value = true
-            Log.d("CameraCaptureScreen", "✅ Cámara lista para inicializar")
         } else {
             showPermissionDialog.value = true
         }
     }
 
+    // Verificación de permisos de cámara al iniciar la pantalla
     LaunchedEffect(Unit) {
         val permission = Manifest.permission.CAMERA
-        val permissionStatus = ContextCompat.checkSelfPermission(context, permission)
-
-        Log.d("CameraCaptureScreen", "🔍 Estado permiso: $permissionStatus")
-
-        if (permissionStatus != PackageManager.PERMISSION_GRANTED) {
-            Log.d("CameraCaptureScreen", "❌ Permiso no concedido, solicitando...")
+        if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
             permissionLauncher.launch(permission)
         } else {
-            Log.d("CameraCaptureScreen", "✅ Permiso ya concedido")
             hasCameraAccess.value = true
             cameraInitialized.value = true
         }
@@ -83,8 +75,8 @@ fun CameraCaptureScreen(navController: NavHostController) {
     if (showPermissionDialog.value) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog.value = false },
-            title = { Text("Permiso de C��mara") },
-            text = { Text("Se necesita acceso a la cámara para usar esta función.") },
+            title = { Text("Permiso de Cámara") },
+            text = { Text("Se necesita acceso a la cámara para realizar la detección de la planta.") },
             confirmButton = {
                 Button(onClick = { showPermissionDialog.value = false }) {
                     Text("Entendido")
@@ -108,26 +100,13 @@ fun CameraCaptureScreen(navController: NavHostController) {
         ) {
             if (isProcessing.value) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .padding(bottom = 16.dp),
-                            color = Color(Constants.PURPLE_PRIMARY)
-                        )
-                        Text(
-                            "Analizando planta con IA...",
-                            fontSize = 16.sp,
-                            color = Color.Gray
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = Color(Constants.PURPLE_PRIMARY))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Analizando con IA...", color = Color.Gray)
                     }
                 }
             } else {
@@ -137,6 +116,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
+                // Contenedor de la vista previa de la cámara
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -150,122 +130,111 @@ fun CameraCaptureScreen(navController: NavHostController) {
                             factory = { ctx ->
                                 PreviewView(ctx).apply {
                                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                    cameraManager.startCamera(this, lifecycleOwner) { errorMsg ->
-                                        errorMessage.value = errorMsg
-                                        Log.e("CameraCaptureScreen", "Error cámara: $errorMsg")
+                                    cameraManager.startCamera(this, lifecycleOwner) { error ->
+                                        errorMessage.value = error
                                     }
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Text("Inicializando cámara...")
+                        Text("Esperando acceso a la cámara...")
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
                 if (errorMessage.value != null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFFCE4EC), shape = RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            "⚠️ ${errorMessage.value}",
-                            fontSize = 12.sp,
-                            color = Color(0xFFC2185B)
-                        )
-                    }
+                    Text("⚠️ ${errorMessage.value}", color = Color.Red, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
+                // Botón para capturar la foto e iniciar la clasificación real
                 Button(
                     onClick = {
                         isProcessing.value = true
                         errorMessage.value = null
 
-                        scope.launch {
-                            try {
-                                Log.d("CameraCaptureScreen", "📸 Simulando captura de Aloe Vera...")
+                        cameraManager.takePhoto(
+                            onPhotoTaken = { path ->
+                                scope.launch {
+                                    try {
+                                        // 1. Decodificar la imagen capturada
+                                        val bitmap = BitmapFactory.decodeFile(path)
 
-                                val confidence = 85f
-                                Log.d("CameraCaptureScreen", "✅ ALOE VERA DETECTADA - Confianza: $confidence%")
+                                        // 2. Ejecutar la inferencia con TFLite
+                                        val classifications = tfLiteHelper.classifyImage(bitmap)
+                                        val topCategory = classifications?.firstOrNull()?.categories?.firstOrNull()
 
-                                val sensorResult = mockSensorManager.readSensors()
+                                        if (topCategory != null) {
+                                            // 3. Mapeo manual basado en los índices del entrenamiento
+                                            // Índice 0: healthy_leaf, 1: rot, 2: rust
+                                            val plantName = when(topCategory.index) {
+                                                0 -> "Aloe Vera Sana"
+                                                1 -> "Aloe Vera con Podredumbre"
+                                                2 -> "Aloe Vera con Oxido"
+                                                else -> "Planta Desconocida"
+                                            }
 
-                                sensorResult.onSuccess { sensorData ->
-                                    Log.d("CameraCaptureScreen", "📊 Datos Mock ESP32 leídos:")
-                                    Log.d("CameraCaptureScreen", "  - Humedad: ${sensorData.soilHumidity}%")
-                                    Log.d("CameraCaptureScreen", "  - Temperatura: ${sensorData.temperature}°C")
-                                    Log.d("CameraCaptureScreen", "  - pH: ${sensorData.pH}")
+                                            // Definir estado basado en el índice 0 (saludable)
+                                            val state = if (topCategory.index == 0) "saludable" else "enferma"
+                                            val confidence = topCategory.score * 100
 
-                                    FirebaseManager.saveTelemetry(
-                                        humedad = sensorData.soilHumidity,
-                                        temperatura = sensorData.temperature,
-                                        nivelTanque = sensorData.tankLevel,
-                                        estadoBomba = sensorData.pumpStatus,
-                                        pH = sensorData.pH
-                                    )
+                                            // 4. Obtener datos de sensores del Mock
+                                            val sensorResult = mockSensorManager.readSensors()
 
-                                    FirebaseManager.saveDetectionResult(
-                                        plantName = "Aloe Vera",
-                                        state = "saludable",
-                                        confidence = confidence
-                                    )
+                                            sensorResult.onSuccess { sensorData ->
+                                                // 5. Persistir telemetría y resultados en Firebase
+                                                FirebaseManager.saveTelemetry(
+                                                    humedad = sensorData.soilHumidity,
+                                                    temperatura = sensorData.temperature,
+                                                    nivelTanque = sensorData.tankLevel,
+                                                    estadoBomba = sensorData.pumpStatus,
+                                                    pH = sensorData.pH
+                                                )
 
-                                    Log.d("CameraCaptureScreen", "✅ Datos guardados en Firebase")
+                                                FirebaseManager.saveDetectionResult(
+                                                    plantName = plantName,
+                                                    state = state,
+                                                    confidence = confidence
+                                                )
 
-                                    navController.navigate(
-                                        "detection_result/Aloe%20Vera/saludable/$confidence"
-                                    )
+                                                // 6. Navegar a la pantalla de resultados con datos procesados
+                                                navController.navigate("detection_result/$plantName/$state/$confidence")
+                                            }
+                                        } else {
+                                            errorMessage.value = "La IA no pudo identificar la planta"
+                                        }
+                                    } catch (e: Exception) {
+                                        errorMessage.value = "Error en procesamiento: ${e.message}"
+                                    } finally {
+                                        isProcessing.value = false
+                                        // Eliminar archivo temporal para optimizar almacenamiento
+                                        File(path).delete()
+                                    }
                                 }
-
-                                sensorResult.onFailure { exception ->
-                                    errorMessage.value = "Error leyendo sensores: ${exception.message}"
-                                    Log.e("CameraCaptureScreen", "❌ Error Mock ESP32: ${exception.message}")
-                                }
-
-                            } catch (e: Exception) {
-                                errorMessage.value = "Error: ${e.message}"
-                                Log.e("CameraCaptureScreen", "Error: ${e.message}")
-                            } finally {
+                            },
+                            onError = { error ->
+                                errorMessage.value = error
                                 isProcessing.value = false
                             }
-                        }
+                        )
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(Constants.PURPLE_PRIMARY)
-                    ),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(Constants.PURPLE_PRIMARY)),
                     enabled = !isProcessing.value && cameraInitialized.value
                 ) {
-                    Text(
-                        Constants.BTN_TAKE_PHOTO,
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
+                    Text(Constants.BTN_TAKE_PHOTO, color = Color.White)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Button(
                     onClick = { navController.popBackStack() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(Constants.GRAY_BUTTON)
-                    )
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(Constants.GRAY_BUTTON))
                 ) {
-                    Text(
-                        Constants.BTN_BACK,
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
+                    Text(Constants.BTN_BACK, color = Color.White)
                 }
             }
         }
