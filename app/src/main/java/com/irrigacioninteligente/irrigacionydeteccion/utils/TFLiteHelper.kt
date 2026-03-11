@@ -40,10 +40,9 @@ class TFLiteHelper(private val context: Context) {
         if (imageClassifier == null) return null
 
         return try {
-            // Configuración que coincide con tu entrenamiento de Python (150x150 y rescale 1/255)
             val imageProcessor = ImageProcessor.Builder()
-                .add(ResizeOp(150, 150, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0f, 255f)) // Normaliza píxeles al rango 0.0 - 1.0
+                .add(ResizeOp(150, 150, ResizeOp.ResizeMethod.BILINEAR)) // Tamaño de tu red
+                .add(NormalizeOp(0f, 255f)) // Normalización rescale=1./255
                 .build()
 
             var tensorImage = TensorImage.fromBitmap(bitmap)
@@ -51,17 +50,16 @@ class TFLiteHelper(private val context: Context) {
 
             val results = imageClassifier?.classify(tensorImage)
 
-            // Log de depuración para ver el índice real que devuelve la red neuronal
+            // Log para depurar qué índice y confianza está arrojando realmente
             results?.forEach { classification ->
                 val top = classification.categories.firstOrNull()
                 if (top != null) {
-                    Log.d("TFLiteHelper", "🌿 IA Detectó Índice: ${top.index} | Label: '${top.label}' | Confianza: ${top.score * 100}%")
+                    Log.d("TFLiteHelper", "🌿 IA Índice: ${top.index} | Confianza: ${top.score * 100}%")
                 }
             }
-
             results
         } catch (e: Exception) {
-            Log.e("TFLiteHelper", "❌ Error en clasificación: ${e.message}")
+            Log.e("TFLiteHelper", "❌ Error: ${e.message}")
             null
         }
     }

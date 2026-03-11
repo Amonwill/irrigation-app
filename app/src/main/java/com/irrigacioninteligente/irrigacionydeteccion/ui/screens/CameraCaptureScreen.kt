@@ -31,6 +31,8 @@ import com.irrigacioninteligente.irrigacionydeteccion.utils.MockSensorManager
 import com.irrigacioninteligente.irrigacionydeteccion.utils.TFLiteHelper
 import kotlinx.coroutines.launch
 import java.io.File
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun CameraCaptureScreen(navController: NavHostController) {
@@ -38,7 +40,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    // Inicialización de utilidades con persistencia en la composición
+    // Inicialización persistente de utilidades
     val cameraManager = remember { CameraManager(context) }
     val tfLiteHelper = remember { TFLiteHelper(context) }
     val mockSensorManager = remember { MockSensorManager() }
@@ -49,7 +51,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
     val hasCameraAccess = remember { mutableStateOf(false) }
     val cameraInitialized = remember { mutableStateOf(false) }
 
-    // Launcher para solicitar permisos de cámara
+    // Launcher para gestión de permisos
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -61,7 +63,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
         }
     }
 
-    // Verificación de permisos de cámara al iniciar la pantalla
+    // Verificación inicial de permisos
     LaunchedEffect(Unit) {
         val permission = Manifest.permission.CAMERA
         if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
@@ -116,7 +118,6 @@ fun CameraCaptureScreen(navController: NavHostController) {
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                // Contenedor de la vista previa de la cámara
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -149,7 +150,6 @@ fun CameraCaptureScreen(navController: NavHostController) {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Botón para capturar la foto e iniciar la clasificación real
                 Button(
                     onClick = {
                         isProcessing.value = true
@@ -159,32 +159,30 @@ fun CameraCaptureScreen(navController: NavHostController) {
                             onPhotoTaken = { path ->
                                 scope.launch {
                                     try {
-                                        // 1. Decodificar la imagen capturada
+                                        // 1. Decodificar imagen real
                                         val bitmap = BitmapFactory.decodeFile(path)
 
-                                        // 2. Ejecutar la inferencia con TFLite
+                                        // 2. Clasificación con modelo .tflite
                                         val classifications = tfLiteHelper.classifyImage(bitmap)
                                         val topCategory = classifications?.firstOrNull()?.categories?.firstOrNull()
 
                                         if (topCategory != null) {
-                                            // 3. Mapeo manual basado en los índices del entrenamiento
-                                            // Índice 0: healthy_leaf, 1: rot, 2: rust
-                                            val plantName = when(topCategory.index) {
+                                            // 3. Mapeo de índices de entrenamiento: 0=Sana, 1=Rot, 2=Rust
+                                            val plantNameRaw = when(topCategory.index) {
                                                 0 -> "Aloe Vera Sana"
                                                 1 -> "Aloe Vera con Podredumbre"
                                                 2 -> "Aloe Vera con Oxido"
                                                 else -> "Planta Desconocida"
                                             }
 
-                                            // Definir estado basado en el índice 0 (saludable)
                                             val state = if (topCategory.index == 0) "saludable" else "enferma"
                                             val confidence = topCategory.score * 100
 
-                                            // 4. Obtener datos de sensores del Mock
+                                            // 4. Lectura de sensores
                                             val sensorResult = mockSensorManager.readSensors()
 
                                             sensorResult.onSuccess { sensorData ->
-                                                // 5. Persistir telemetría y resultados en Firebase
+                                                // 5. Guardar en Firebase
                                                 FirebaseManager.saveTelemetry(
                                                     humedad = sensorData.soilHumidity,
                                                     temperatura = sensorData.temperature,
@@ -194,13 +192,14 @@ fun CameraCaptureScreen(navController: NavHostController) {
                                                 )
 
                                                 FirebaseManager.saveDetectionResult(
-                                                    plantName = plantName,
+                                                    plantName = plantNameRaw,
                                                     state = state,
                                                     confidence = confidence
                                                 )
 
-                                                // 6. Navegar a la pantalla de resultados con datos procesados
-                                                navController.navigate("detection_result/$plantName/$state/$confidence")
+                                                // 6. Navegación con encoding para evitar errores de URL
+                                                val encodedName = URLEncoder.encode(plantNameRaw, StandardCharsets.UTF_8.toString())
+                                                navController.navigate("detection_result/$encodedName/$state/$confidence")
                                             }
                                         } else {
                                             errorMessage.value = "La IA no pudo identificar la planta"
@@ -209,8 +208,7 @@ fun CameraCaptureScreen(navController: NavHostController) {
                                         errorMessage.value = "Error en procesamiento: ${e.message}"
                                     } finally {
                                         isProcessing.value = false
-                                        // Eliminar archivo temporal para optimizar almacenamiento
-                                        File(path).delete()
+                                        File(path).delete() // Limpieza de archivos temporales
                                     }
                                 }
                             },
